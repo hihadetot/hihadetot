@@ -1412,7 +1412,7 @@ async function marcarEntregat() {
     .select('perfils(nom)')
     .eq('article_id', currentArticleId);
   // (L'avís real per correu el gestiona Supabase Edge Functions - de moment toast)
-  showToast('✅ Article entregat! S'avisarà a tothom de la cua.');
+  showToast("✅ Article entregat! S'avisarà a tothom de la cua.");
   setTimeout(() => showApp(), 1500);
 }
 
