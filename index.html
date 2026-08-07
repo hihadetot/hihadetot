@@ -612,7 +612,7 @@
       </div>
       <div class="detail-actions" id="actions-owner" style="display:none; flex-direction:column; gap:10px;">
         <div style="display:flex;gap:8px;">
-          <button class="btn-primary" id="btn-reservat" onclick="canviarEstat('reservat')" style="flex:1;background:var(--blau);font-size:14px;">🔵 Marcar reservat</button>
+          <button class="btn-primary" id="btn-reservat" onclick="canviarEstat('reservat')" style="flex:1;background:var(--blau);font-size:14px;">🔵 Reservar</button>
           <button class="btn-primary" id="btn-entregat" onclick="confirmarEntregat()" style="flex:1;font-size:14px;">✅ Entregat</button>
         </div>
         <button class="delete-btn" onclick="openDelete()">🗑 Eliminar el meu article</button>
@@ -1343,7 +1343,7 @@ async function obrirDetall(articleId) {
   const btnReservat = document.getElementById('btn-reservat');
   const btnEntregat = document.getElementById('btn-entregat');
   if (btnReservat) {
-    btnReservat.textContent = '🔵 Marcar reservat';
+    btnReservat.textContent = '🔵 Reservar';
     btnReservat.onclick = () => canviarEstat('reservat');
     btnReservat.style.display = '';
   }
