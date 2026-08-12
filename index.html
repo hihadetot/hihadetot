@@ -1461,29 +1461,74 @@ function paraulesSig(text) {
 async function buscarMatchingBuscos(titol, descripcio) {
   if (!currentUser) return;
 
+  console.log('🔎 MATCHING - Article:', titol);
+  console.log('🔎 MATCHING - Descripció:', descripcio);
+
   // Obtenir tots els buscos actius d'altres usuaris
-  const { data: buscos } = await sb.from('busco')
+  const { data: buscos, error: errBuscos } = await sb.from('busco')
     .select('id, titol, descripcio, user_id')
     .eq('actiu', true)
     .neq('user_id', currentUser.id);
 
-  if (!buscos || buscos.length === 0) return;
+  if (errBuscos) {
+    console.error('❌ Matching - Error carregant buscos:', errBuscos);
+    return;
+  }
 
-  const paraulesArticle = paraulesSig(titol + ' ' + (descripcio || ''));
-  if (paraulesArticle.size === 0) return;
+  if (!buscos || buscos.length === 0) {
+    console.log('ℹ️ Matching - No hi ha buscos actius.');
+    return;
+  }
+
+  const paraulesArticle = paraulesSig(
+    titol + ' ' + (descripcio || '')
+  );
+
+  console.log(
+    '🔎 Matching - Paraules article:',
+    [...paraulesArticle]
+  );
+
+  if (paraulesArticle.size === 0) {
+    console.log('ℹ️ Matching - Article sense paraules significatives.');
+    return;
+  }
 
   const matches = [];
+
   for (const b of buscos) {
-    const paraulesBusco = paraulesSig(b.titol + ' ' + (b.descripcio || ''));
-    const coincidencies = [...paraulesArticle].filter(p => paraulesBusco.has(p));
+    const paraulesBusco = paraulesSig(
+      b.titol + ' ' + (b.descripcio || '')
+    );
+
+    const coincidencies = [...paraulesArticle]
+      .filter(p => paraulesBusco.has(p));
+
     if (coincidencies.length >= 1) {
-      matches.push({ busco: b, coincidencies });
+      console.log(
+        '✅ MATCH:',
+        b.titol,
+        '→',
+        coincidencies
+      );
+
+      matches.push({
+        busco: b,
+        coincidencies
+      });
     }
   }
 
-  if (matches.length === 0) return;
+  if (matches.length === 0) {
+    console.log('ℹ️ Matching - No hi ha coincidències.');
+    return;
+  }
 
-  // Avisar a cada persona que tenia un Busco coincident
+  console.log(
+    `🎯 Matching - ${matches.length} coincidència/es trobada/es.`
+  );
+
+  // Crear un avís per a cada persona amb un Busco coincident
   const avisos = matches.map(m => ({
     user_id: m.busco.user_id,
     tipus: 'matching',
@@ -1491,9 +1536,25 @@ async function buscarMatchingBuscos(titol, descripcio) {
     vist: false
   }));
 
-  const { error: errAvis } = await sb.from('avisos').insert(avisos);
-  if (errAvis) console.log('Matching insert error:', errAvis);
-  else console.log(`Matching: ${matches.length} buscos coincidents per "${titol}"`);
+  console.log('📨 Matching - Avisos a inserir:', avisos);
+
+  const { data: avisosInsertats, error: errAvis } =
+    await sb.from('avisos')
+      .insert(avisos)
+      .select();
+
+  if (errAvis) {
+    console.error(
+      '❌ MATCHING - Error inserint avisos:',
+      errAvis
+    );
+    return;
+  }
+
+  console.log(
+    '✅ MATCHING - Avisos inserits correctament:',
+    avisosInsertats
+  );
 }
 
 // ── TICKER ──
@@ -1891,7 +1952,7 @@ async function publicarArticle() {
     await sb.from('articles').update({ foto1_url: article.foto1_url, foto2_url: article.foto2_url }).eq('id', article.id);
   }
 
-  buscarMatchingBuscos(titol, desc);
+  await buscarMatchingBuscos(titol, desc);
   showToast('✓ Article publicat correctament!');
   document.getElementById('pub-titol').value = '';
   document.getElementById('pub-desc').value = '';
