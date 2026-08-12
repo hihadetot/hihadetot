@@ -922,7 +922,21 @@
     <div id="modal-primer-emoji" style="font-size:64px;margin-bottom:16px;">🎉</div>
     <h3 id="modal-primer-titol" style="font-family:'Nunito',sans-serif;font-size:22px;font-weight:800;color:var(--verd);margin-bottom:12px;">Ara ets el primer!</h3>
     <p id="modal-primer-text" style="font-size:15px;color:var(--text-suau);line-height:1.6;margin-bottom:24px;"></p>
-    <button class="btn-primary" onclick="tancarModalPrimerCua()" style="font-size:16px;">Entesos! 👍</button>
+
+<button
+  id="btn-modal-matching"
+  class="btn-primary"
+  onclick="obrirArticleMatching()"
+  style="display:none;margin-bottom:10px;font-size:16px;">
+  👀 Veure article
+</button>
+
+<button
+  class="btn-secondary"
+  onclick="tancarModalPrimerCua()"
+  style="font-size:16px;">
+  Entesos! 👍
+</button>
   </div>
 </div>
 
@@ -990,6 +1004,7 @@ let currentUser = null;
 let currentBuscoId = null;
 let currentPerfil = null;
 let currentArticleId = null;
+let currentMatchingArticleId = null;
 let currentReceptorId = null;
 let xatSubscription = null;
 let categoriaActual = '';
@@ -1109,16 +1124,45 @@ function activarNotificacionsTempsReal() {
       if ((avis.tipus === 'cua' || avis.tipus === 'tret_cua' || avis.tipus === 'matching') && !avis.vist) {
         // Matching: avís especial
         if (avis.tipus === 'matching') {
-          const titolArticle = (avis.motiu || '').replace('matching:', '');
-          document.getElementById('modal-primer-emoji').textContent = '💡';
-          document.getElementById('modal-primer-titol').textContent = "Potser t'interessa!";
-          document.getElementById('modal-primer-titol').style.color = '#e67e22';
-          document.getElementById('modal-primer-text').textContent =
-            `Algú acaba d'oferir "${titolArticle}" i podria ser el que estaves buscant. Ves-hi a veure!`;
-          document.getElementById('modal-primer-cua').classList.add('active');
-          await sb.from('avisos').update({ vist: true }).eq('id', avis.id);
-          return;
-        }
+
+  const articleId = (avis.motiu || '').replace('matching:', '');
+
+  const { data: article } = await sb.from('articles')
+    .select('titol')
+    .eq('id', articleId)
+    .single();
+
+  const titolArticle = article?.titol || 'aquest article';
+
+  currentMatchingArticleId = articleId;
+
+  document.getElementById('modal-primer-emoji').textContent = '💡';
+
+  document.getElementById('modal-primer-titol').textContent =
+    "Potser t'interessa!";
+
+  document.getElementById('modal-primer-titol').style.color =
+    '#e67e22';
+
+  document.getElementById('modal-primer-text').textContent =
+    `Algú acaba d'oferir "${titolArticle}" i podria ser el que estaves buscant.`;
+
+  const btnMatching =
+    document.getElementById('btn-modal-matching');
+
+  if (btnMatching) {
+    btnMatching.style.display = 'block';
+  }
+
+  document.getElementById('modal-primer-cua')
+    .classList.add('active');
+
+  await sb.from('avisos')
+    .update({ vist: true })
+    .eq('id', avis.id);
+
+  return;
+}
 
         const esTretCuaRT = avis.tipus === 'tret_cua';
         const esEntregatRT = esTretCuaRT && (avis.motiu || '').startsWith('entregat:');
@@ -1458,7 +1502,7 @@ function paraulesSig(text) {
   );
 }
 
-async function buscarMatchingBuscos(titol, descripcio) {
+async function buscarMatchingBuscos(articleId, titol, descripcio) {
   if (!currentUser) return;
 
   console.log('🔎 MATCHING - Article:', titol);
@@ -1543,7 +1587,7 @@ console.log(
   const avisos = matches.map(m => ({
     user_id: m.busco.user_id,
     tipus: 'matching',
-    motiu: `matching:${titol}`,
+    motiu: `matching:${articleId}`,
     vist: false
   }));
 
@@ -1961,7 +2005,7 @@ async function publicarArticle() {
     await sb.from('articles').update({ foto1_url: article.foto1_url, foto2_url: article.foto2_url }).eq('id', article.id);
   }
 
-  await buscarMatchingBuscos(titol, desc);
+  await buscarMatchingBuscos(article.id, titol, desc);
   showToast('✓ Article publicat correctament!');
   document.getElementById('pub-titol').value = '';
   document.getElementById('pub-desc').value = '';
@@ -2265,8 +2309,25 @@ async function nomesTornarDisponible() {
 // ── MODAL PRIMER DE LA CUA ──
 function tancarModalPrimerCua() {
   document.getElementById('modal-primer-cua').classList.remove('active');
+
+  currentMatchingArticleId = null;
+
+  const btnMatching = document.getElementById('btn-modal-matching');
+  if (btnMatching) {
+    btnMatching.style.display = 'none';
+  }
 }
 
+function obrirArticleMatching() {
+  if (!currentMatchingArticleId) return;
+
+  const articleId = currentMatchingArticleId;
+
+  tancarModalPrimerCua();
+
+  obrirDetall(articleId);
+} 
+  
 async function comprovarSiPrimerCua() {
   if (!currentUser) return;
   try {
@@ -2285,16 +2346,45 @@ async function comprovarSiPrimerCua() {
     const avis = noVistos[0];
     const esMatching = avis.tipus === 'matching';
     if (esMatching) {
-      const titolArticle = (avis.motiu || '').replace('matching:', '');
-      document.getElementById('modal-primer-emoji').textContent = '💡';
-      document.getElementById('modal-primer-titol').textContent = "Potser t'interessa!";
-      document.getElementById('modal-primer-titol').style.color = '#e67e22';
-      document.getElementById('modal-primer-text').textContent =
-        `Algú acaba d'oferir "${titolArticle}" i podria ser el que estaves buscant. Ves-hi a veure!`;
-      document.getElementById('modal-primer-cua').classList.add('active');
-      await sb.from('avisos').update({ vist: true }).eq('id', avis.id);
-      return;
-    }
+
+  const articleId = (avis.motiu || '').replace('matching:', '');
+
+  const { data: article } = await sb.from('articles')
+    .select('titol')
+    .eq('id', articleId)
+    .single();
+
+  const titolArticle = article?.titol || 'aquest article';
+
+  currentMatchingArticleId = articleId;
+
+  document.getElementById('modal-primer-emoji').textContent = '💡';
+
+  document.getElementById('modal-primer-titol').textContent =
+    "Potser t'interessa!";
+
+  document.getElementById('modal-primer-titol').style.color =
+    '#e67e22';
+
+  document.getElementById('modal-primer-text').textContent =
+    `Algú acaba d'oferir "${titolArticle}" i podria ser el que estaves buscant.`;
+
+  const btnMatching =
+    document.getElementById('btn-modal-matching');
+
+  if (btnMatching) {
+    btnMatching.style.display = 'block';
+  }
+
+  document.getElementById('modal-primer-cua')
+    .classList.add('active');
+
+  await sb.from('avisos')
+    .update({ vist: true })
+    .eq('id', avis.id);
+
+  return;
+}
 
     const esTretCua = avis.tipus === 'tret_cua';
     // El motiu pot ser: 'entregat:UUID:titol', 'tret_cua:UUID' o 'primer_cua:UUID'
