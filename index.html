@@ -1538,10 +1538,9 @@ async function buscarMatchingBuscos(titol, descripcio) {
 
   console.log('📨 Matching - Avisos a inserir:', avisos);
 
-  const { data: avisosInsertats, error: errAvis } =
+  const { error: errAvis } =
     await sb.from('avisos')
-      .insert(avisos)
-      .select();
+      .insert(avisos);
 
   if (errAvis) {
     console.error(
