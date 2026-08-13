@@ -1725,7 +1725,7 @@ async function carregarBusco() {
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             ${esMeu
               ? `<button onclick="editarBusco('${b.id}','${titolSegur}','${(b.descripcio||'').replace(/'/g,"\'")}') " style="background:none;border:1px solid var(--verd);color:var(--verd);border-radius:50px;padding:7px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">✏️ Editar</button>
-               <button onclick="eliminarBusco('${b.id}')" style="background:var(--verd);border:none;color:white;border-radius:50px;padding:7px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">🎯 Trobat!!!</button>`
+               <button onclick="eliminarBusco('${b.id}')" style="background:white;border:2px solid var(--verd);color:var(--verd);border-radius:50px;padding:7px 14px;font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;cursor:pointer;">🎯 Trobat!!!</button>`
               : `<button class="btn-xat-sm" onclick="obrirXatBusco('${b.user_id}','${nomSegur}','${titolSegur}','${b.id}')">💬 Escriure</button>`
             }
           </div>
