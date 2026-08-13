@@ -3119,8 +3119,20 @@ async function carregarMissatgesXat(receptorId, articleId) {
     .update({ llegit: true })
     .eq('receptor_id', currentUser.id)
     .eq('remitent_id', receptorId);
-  if (articleId) updateQuery = updateQuery.eq('article_id', articleId);
-  await updateQuery;
+  if (articleId) {
+  updateQuery = updateQuery.eq('article_id', articleId);
+} else if (currentBuscoId) {
+  updateQuery = updateQuery.eq('busco_id', currentBuscoId);
+} else if (currentEventId) {
+  updateQuery = updateQuery.eq('event_id', currentEventId);
+} else {
+  updateQuery = updateQuery
+    .is('article_id', null)
+    .is('busco_id', null)
+    .is('event_id', null);
+}
+
+await updateQuery;
   comprovarNoLlegits();
 }
 
@@ -3207,7 +3219,7 @@ async function enviarMissatge() {
 async function carregarMissatges() {
   if (!currentUser) return;
   const { data } = await sb.from('missatges')
-    .select('*, remitent:perfils!missatges_remitent_id_fkey(nom), receptor:perfils!missatges_receptor_id_fkey(nom), articles(titol), busco(titol)')
+    .select('*, remitent:perfils!missatges_remitent_id_fkey(nom), receptor:perfils!missatges_receptor_id_fkey(nom), articles(titol), busco(titol), agenda(titol)')
     .or(`remitent_id.eq.${currentUser.id},receptor_id.eq.${currentUser.id}`)
     .order('created_at', { ascending: false });
 
@@ -3223,21 +3235,23 @@ async function carregarMissatges() {
     const altreId = m.remitent_id === currentUser.id ? m.receptor_id : m.remitent_id;
     const altreNom = m.remitent_id === currentUser.id ? m.receptor?.nom : m.remitent?.nom;
     // Clau única per conversa: persona + article o persona + busco
-    const refId = m.article_id || m.busco_id || 'general';
+    const refId = m.article_id || m.busco_id || m.event_id || 'general';
     const key = `${altreId}-${refId}`;
     if (!conversations[key]) {
-      const titol = m.articles?.titol || m.busco?.titol || '';
-      const icona = m.busco_id ? '🔍' : '📦';
+      const titol = m.articles?.titol || m.busco?.titol || m.agenda?.titol || '';
+      const icona = m.busco_id ? '🔍' : m.event_id ? '📅' : '📦';
+
       conversations[key] = {
-        nom: altreNom,
-        ultimMissatge: m.contingut,
-        id: altreId,
-        articleId: m.article_id || null,
-        buscoId: m.busco_id || null,
-        titolRef: titol,
-        iconaRef: titol ? icona : '',
-        noLlegit: !m.llegit && m.receptor_id === currentUser.id
-      };
+      nom: altreNom,
+      ultimMissatge: m.contingut,
+      id: altreId,
+      articleId: m.article_id || null,
+      buscoId: m.busco_id || null,
+      eventId: m.event_id || null,
+      titolRef: titol,
+      iconaRef: titol ? icona : '',
+      noLlegit: !m.llegit && m.receptor_id === currentUser.id
+    };
     }
     if (!m.llegit && m.receptor_id === currentUser.id) {
       conversations[key].noLlegit = true;
@@ -3248,9 +3262,15 @@ async function carregarMissatges() {
     const inicials = c.nom ? c.nom.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '?';
     const nomSegur = (c.nom || '').replace(/'/g, "\'");
     const titolSegur = (c.titolRef || '').replace(/'/g, "\'");
-    const onclick = c.buscoId
-      ? `obrirXatBusco('${c.id}','${nomSegur}','${titolSegur}','${c.buscoId}')`
-      : `obrirXat('${c.id}','${nomSegur}','${titolSegur}','${c.articleId || ''}')`;
+      let onclick;
+
+      if (c.eventId) {
+      onclick = `obrirXatEvent('${c.eventId}','${c.id}','${titolSegur}')`;
+      } else if (c.buscoId) {
+      onclick = `obrirXatBusco('${c.id}','${nomSegur}','${titolSegur}','${c.buscoId}')`;
+      } else {
+      onclick = `obrirXat('${c.id}','${nomSegur}','${titolSegur}','${c.articleId || ''}')`;
+      }
     return `
       <div class="msg-preview" onclick="${onclick}">
         <div class="avatar">${inicials}</div>
