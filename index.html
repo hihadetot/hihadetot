@@ -3338,8 +3338,8 @@ async function carregarMissatges() {
 
   llista.innerHTML = Object.values(conversations).map(c => {
     const inicials = c.nom ? c.nom.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '?';
-    const nomSegur = (c.nom || '').replace(/'/g, "\'");
-    const titolSegur = (c.titolRef || '').replace(/'/g, "\'");
+    const nomSegur = (c.nom || '').replace(/'/g, "\\'");
+    const titolSegur = (c.titolRef || '').replace(/'/g, "\\'");
       let onclick;
 
       if (c.eventId) {
