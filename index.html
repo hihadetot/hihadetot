@@ -3748,11 +3748,32 @@ async function eliminarBusco(buscoId) {
   }
 
   // Incrementar el comptador de buscos resolts
-  const { data: comp } = await sb.from('comptadors').select('buscos_resolts').eq('id', 1).single();
-  if (comp) {
-    await sb.from('comptadors')
-      .update({ buscos_resolts: (comp.buscos_resolts || 0) + 1 })
-      .eq('id', 1);
+ const { data: comp, error: errorLectura } = await sb.from('comptadors')
+  .select('buscos_resolts')
+  .eq('id', 1)
+  .single();
+
+if (errorLectura) {
+  console.error('ERROR LEYENDO comptadors:', errorLectura);
+  alert('Error leyendo el contador: ' + errorLectura.message);
+  return;
+}
+
+if (comp) {
+  const nouValor = (comp.buscos_resolts || 0) + 1;
+
+  const { error: errorUpdate } = await sb.from('comptadors')
+    .update({ buscos_resolts: nouValor })
+    .eq('id', 1);
+
+  if (errorUpdate) {
+    console.error('ERROR ACTUALIZANDO comptadors:', errorUpdate);
+    alert('Error actualizando el contador: ' + errorUpdate.message);
+    return;
+  }
+
+  console.log('Contador actualizado correctamente a:', nouValor);
+}
   }
 
   showToast('✅ Genial! Ens alegrem que ho hagis trobat!');
