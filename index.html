@@ -1855,11 +1855,16 @@ const PARAULES_IGNORAR = new Set([
 
 function paraulesSig(text) {
   if (!text) return new Set();
+
   return new Set(
     text.toLowerCase()
-      .normalize('NFD').replace(/[̀-ͯ]/g, '') // treure accents
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9\s]/g, ' ')
       .split(/\s+/)
+      .map(p => {
+        if (p.length > 4 && p.endsWith('s')) return p.slice(0, -1);
+        return p;
+      })
       .filter(p => p.length > 3 && !PARAULES_IGNORAR.has(p))
   );
 }
@@ -1916,7 +1921,7 @@ console.log(
     const coincidencies = [...paraulesArticle]
       .filter(p => paraulesBusco.has(p));
 
-    if (coincidencies.length >= 1) {
+    if (coincidencies.length >= 2 || (coincidencies.length === 1 && paraulesBusco.size === 1)) {
       console.log(
         '✅ MATCH:',
         b.titol,
