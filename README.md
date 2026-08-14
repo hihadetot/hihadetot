@@ -19,7 +19,7 @@ Com funciona el sistema de cua?
 
 Quan algú publica un article, els interessats s'apunten a la cua per ordre d'arribada. El primer té preferència, però si no arriben a un acord, passa el torn al següent. El creador de l'article pot contactar directament amb qualsevol persona de la cua des de la mateixa aplicació.
 
-Els articles caduquen als 7 dies automàticament (les peticions de "Busco" als 14 dies) per evitar que el tauler s'ompli de coses que ja s'han entregat.
+Els articles caduquen als 14 dies automàticament (les peticions de "Busco" als 14 dies) per evitar que el tauler s'ompli de coses que ja s'han entregat.
 
 Moderació democràtica
 
