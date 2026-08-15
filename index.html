@@ -840,10 +840,19 @@ LLICÈNCIA
       <div class="perfil-item-info"><strong>Els meus missatges</strong><span>Converses actives</span></div>
     </div>
     <div class="perfil-item" onclick="show('perfil-cues');carregarMesCues()">
-      <span>🙋</span>
-      <div class="perfil-item-info"><strong>Articles on estic a la cua</strong><span id="perfil-cues-sub">Carregant...</span></div>
-    </div>
-    <div class="perfil-item" onclick="show('avisos');carregarAvisos()">
+  <span>🙋</span>
+  <div class="perfil-item-info"><strong>Articles on estic a la cua</strong><span id="perfil-cues-sub">Carregant...</span></div>
+</div>
+
+<div class="perfil-item" onclick="show('config-notificacions');carregarPreferenciesNotificacions()">
+  <span>🔔</span>
+  <div class="perfil-item-info">
+    <strong>Notificacions</strong>
+    <span>Tria quins avisos vols rebre</span>
+  </div>
+</div>
+
+<div class="perfil-item" onclick="show('avisos');carregarAvisos()">
       <span>⚠️</span>
       <div class="perfil-item-info"><strong>Avisos rebuts</strong><span id="perfil-avisos-sub">Sense avisos</span></div>
     </div>
@@ -876,6 +885,54 @@ LLICÈNCIA
     </div>
     <button class="btn-logout" onclick="tancarSessio()">Tancar sessió</button>
     <button class="btn-secondary" onclick="show('app')" style="margin-top:4px;">← Tornar</button>
+  </div>
+</div>
+
+  <div class="screen" id="config-notificacions">
+  <div class="section-header">
+    <button class="back-btn" onclick="show('perfil');carregarPerfil()">←</button>
+    <h2>🔔 Notificacions</h2>
+  </div>
+
+  <div style="padding:16px;">
+    <div style="background:white;border-radius:var(--radius);padding:20px;box-shadow:0 2px 8px var(--ombra);">
+      <p style="font-size:14px;color:var(--text-suau);margin-bottom:20px;">
+        Tria quins avisos vols rebre al teu mòbil.
+      </p>
+
+      <div class="notif-setting">
+        <div class="notif-setting-info">
+          <strong>💬 Missatges directes</strong>
+          <span>Quan algú t'envia un missatge nou.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notif-missatges" onchange="guardarPreferenciaNotificacio('notificacions_missatges', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="notif-setting">
+        <div class="notif-setting-info">
+          <strong>📦 Nous articles</strong>
+          <span>Quan es publica un article nou a la teva població.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notif-articles" onchange="guardarPreferenciaNotificacio('notificacions_articles', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="notif-setting">
+        <div class="notif-setting-info">
+          <strong>🥇 Primer de la cua</strong>
+          <span>Quan passes a ser el primer de la cua d'un article.</span>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notif-cua" onchange="guardarPreferenciaNotificacio('notificacions_cua', this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
   </div>
 </div>
 
