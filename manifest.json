@@ -1,0 +1,14 @@
+{
+  "name": "Hi ha de tot",
+  "short_name": "Hi ha de tot",
+  "description": "Intercanvi de productes a la Vall del Llémena",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f0e8",
+  "theme_color": "#1a4a2e",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/Icona.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/Icona.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
