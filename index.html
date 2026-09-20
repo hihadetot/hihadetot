@@ -3756,12 +3756,13 @@ async function confirmarEliminacio() {
 // ═══════════════════════════════════════
 // XAT
 // ═══════════════════════════════════════
-async function obrirXat(receptorId, nomReceptor, titolArticle, articleId) {
+async function obrirXat(receptorId, nomReceptor, titolArticle, articleId, buscoId = null) {
   if (!currentUser) { show('login'); return; }
   currentReceptorId = receptorId;
+
   // Sempre resetar tot per evitar que quedi context d'una conversa anterior
   currentArticleId = articleId || null;
-  currentBuscoId = null;
+  currentBuscoId = buscoId || null;
   currentEventId = null;
 
   const inicials = nomReceptor ? nomReceptor.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '?';
@@ -3771,16 +3772,18 @@ async function obrirXat(receptorId, nomReceptor, titolArticle, articleId) {
   document.getElementById('xat-msgs').innerHTML = '';
 
   show('xat');
-  amuntFranjaContacte(receptorId, currentArticleId);
+  amuntFranjaContacte(receptorId, currentArticleId, currentBuscoId);
   await carregarMissatgesXat(receptorId, currentArticleId);
 
   if (xatSubscription) xatSubscription.unsubscribe();
+
   // Canal únic per usuari — polling cada 3 segons com a fallback fiable
   xatSubscription = sb.channel('xat-privat-' + currentUser.id)
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'missatges'
     }, async payload => {
       const m = payload.new;
+
       const mateixaConv = currentArticleId
         ? m.article_id === currentArticleId
         : currentBuscoId
@@ -3788,38 +3791,66 @@ async function obrirXat(receptorId, nomReceptor, titolArticle, articleId) {
           : currentEventId
             ? m.event_id === currentEventId
             : !m.article_id && !m.busco_id && !m.event_id;
+
       const mateixosUsuaris =
         (m.remitent_id === currentUser.id && m.receptor_id === receptorId) ||
         (m.remitent_id === receptorId && m.receptor_id === currentUser.id);
+
       if (mateixosUsuaris && mateixaConv && m.remitent_id !== currentUser.id) {
-        // Afegir NOMÉS el missatge nou sense recarregar tots
         afegirMissatgeXat(m);
         comprovarNoLlegits();
-        // Marcar com a llegit (amb eq llegit=false per no disparar Realtime si ja estava llegit)
+
         sb.from('missatges').update({ llegit: true })
-          .eq('id', m.id).eq('receptor_id', currentUser.id).eq('llegit', false);
+          .eq('id', m.id)
+          .eq('receptor_id', currentUser.id)
+          .eq('llegit', false);
       }
     })
     .on('postgres_changes', {
       event: 'UPDATE', schema: 'public', table: 'missatges',
       filter: `remitent_id=eq.${currentUser.id}`
     }, payload => {
-      // Quan el receptor llegeix els nostres missatges, actualitzar ticks al DOM
       if (payload.new.llegit) {
         document.querySelectorAll('#xat-msgs .msg.enviat').forEach(msgEl => {
           const tickEl = msgEl.parentElement?.querySelector('span[style*="font-size:11px"]');
-          if (tickEl) { tickEl.style.color = '#4a8c5c'; tickEl.textContent = '\u2713\u2713'; }
+          if (tickEl) {
+            tickEl.style.color = '#4a8c5c';
+            tickEl.textContent = '✓✓';
+          }
         });
       }
     })
     .subscribe();
-
-
 }
 
-async function amuntFranjaContacte(receptorId, articleId) {
+async function amuntFranjaContacte(receptorId, articleId, buscoId = null) {
   const franja = document.getElementById('franja-contacte');
-  if (!franja || !articleId) { if (franja) franja.style.display = 'none'; return; }
+
+  if (!franja) return;
+
+  // Si és un xat d'un Busco, simplement comprovem
+  // si l'altra persona té telèfon introduït.
+  if (buscoId) {
+    const { data: perfil } = await sb.from('perfils')
+      .select('telefon')
+      .eq('id', receptorId)
+      .single();
+
+    if (!perfil || !perfil.telefon) {
+      franja.style.display = 'none';
+      return;
+    }
+
+    window.telefonContacte = perfil.telefon.replace(/\s/g, '');
+    franja.style.display = 'flex';
+    return;
+  }
+
+  // Xat d'article: mantenim exactament el comportament actual
+  if (!articleId) {
+    franja.style.display = 'none';
+    return;
+  }
 
   // Comprovar: usuari actual és propietari o primer de la cua
   const { data: art } = await sb.from('articles')
@@ -3827,7 +3858,10 @@ async function amuntFranjaContacte(receptorId, articleId) {
     .eq('id', articleId)
     .single();
 
-  if (!art) { franja.style.display = 'none'; return; }
+  if (!art) {
+    franja.style.display = 'none';
+    return;
+  }
 
   const esPropietari = art.user_id === currentUser.id;
 
@@ -3842,9 +3876,15 @@ async function amuntFranjaContacte(receptorId, articleId) {
   const esFirstCua = cua && cua.user_id === currentUser.id;
   const receptorEsFirstCua = cua && cua.user_id === receptorId;
 
-  // Propietari parlant amb el primer de la cua, o primer de la cua parlant amb el propietari
-  const mostrar = (esPropietari && receptorEsFirstCua) || (esFirstCua && !esPropietari);
-  if (!mostrar) { franja.style.display = 'none'; return; }
+  // Propietari parlant amb el primer de la cua,
+  // o primer de la cua parlant amb el propietari
+  const mostrar = (esPropietari && receptorEsFirstCua) ||
+                  (esFirstCua && !esPropietari);
+
+  if (!mostrar) {
+    franja.style.display = 'none';
+    return;
+  }
 
   // Buscar el telèfon de l'altra persona
   const { data: perfil } = await sb.from('perfils')
@@ -3852,9 +3892,11 @@ async function amuntFranjaContacte(receptorId, articleId) {
     .eq('id', receptorId)
     .single();
 
-  if (!perfil || !perfil.telefon) { franja.style.display = 'none'; return; }
+  if (!perfil || !perfil.telefon) {
+    franja.style.display = 'none';
+    return;
+  }
 
-  // Tot OK: mostrar franja
   window.telefonContacte = perfil.telefon.replace(/\s/g, '');
   franja.style.display = 'flex';
 }
@@ -3871,10 +3913,15 @@ function contactarPerTelefon(tipus) {
 
 async function obrirXatBusco(userId, nom, titol, buscoId) {
   if (!currentUser) { show('login'); return; }
-  if (userId === currentUser.id) { showToast("No et pots escriure a tu mateix!"); return; }
+  if (userId === currentUser.id) {
+    showToast("No et pots escriure a tu mateix!");
+    return;
+  }
+
   currentArticleId = null;
   currentBuscoId = buscoId || null;
-  await obrirXat(userId, nom, titol, null);
+
+  await obrirXat(userId, nom, titol, null, buscoId);
 }
 
 async function carregarMissatgesXat(receptorId, articleId) {
