@@ -1,0 +1,622 @@
+<!--
+========================================================
+  HI HA DE TOT — Rutes (BETA)
+  Pàgina de proves independent. No desa res a Supabase.
+  Fase 1: obrir un GPX, veure'l al mapa amb perfil
+  d'elevació, retall de privacitat, seguiment amb la
+  posició en directe i descàrrega del GPX retallat.
+========================================================
+-->
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#1a4a2e">
+<link rel="apple-touch-icon" href="/Icona.png">
+<title>Rutes (beta) · Hi ha de tot</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --verd: #1a4a2e; --verd-mig: #2d6b45; --verd-clar: #4a8c5c;
+    --beix: #f5f0e8; --beix-fosc: #e8e0d0;
+    --groc: #f0b429; --blanc: #ffffff;
+    --text: #1a2e1a; --text-suau: #5a7a5a;
+    --vermell: #c0392b; --vermell-clar: #fdf0ef;
+    --blau: #2471a3; --blau-clar: #eaf4fb;
+    --ombra: rgba(26,74,46,0.12);
+    --radius: 16px; --radius-sm: 10px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: 'Lato', sans-serif; background: var(--beix); color: var(--text); min-height: 100vh; overflow-x: hidden; }
+  .pagina { max-width: 760px; margin: 0 auto; background: var(--beix); min-height: 100vh; }
+  @media (min-width: 768px) { body { background: #e0dcd4; } .pagina { box-shadow: 0 0 40px rgba(0,0,0,0.15); } }
+
+  /* TOPBAR (igual que l'app) */
+  .topbar { background: var(--verd); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 1100; box-shadow: 0 2px 8px var(--ombra); }
+  .topbar-logo { display: flex; align-items: center; gap: 8px; }
+  .topbar-logo span { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 17px; color: var(--blanc); }
+  .topbar-logo .beta { font-size: 11px; background: var(--groc); color: var(--text); border-radius: 50px; padding: 2px 8px; }
+  .topbar-btn { background: none; border: none; cursor: pointer; color: var(--blanc); font-size: 22px; padding: 4px 6px; text-decoration: none; width: 40px; }
+
+  #mapa { width: 100%; height: 42vh; min-height: 260px; background: var(--beix-fosc); z-index: 1; }
+  .content { padding: 16px; padding-bottom: 40px; display: flex; flex-direction: column; gap: 14px; }
+
+  .btn-primary { background: var(--verd); color: var(--blanc); border: none; border-radius: 50px; padding: 15px 24px; font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; transition: 0.2s; text-align: center; width: 100%; }
+  .btn-primary:active { transform: scale(0.97); }
+  .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+  .btn-secondary { background: transparent; color: var(--verd); border: 2px solid var(--verd); border-radius: 50px; padding: 13px 24px; font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 700; cursor: pointer; text-align: center; width: 100%; }
+  .btn-blau { background: var(--blau); }
+  .btn-vermell { background: var(--vermell); }
+  .botons { display: flex; gap: 10px; }
+
+  .field label { display: block; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12px; color: var(--verd); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .field input, .field select { width: 100%; padding: 13px 16px; border: 2px solid var(--beix-fosc); border-radius: var(--radius-sm); font-size: 15px; background: var(--blanc); color: var(--text); font-family: 'Lato', sans-serif; outline: none; }
+  .field input:focus, .field select:focus { border-color: var(--verd-clar); }
+  .field-note { font-size: 12px; color: var(--text-suau); margin-top: 5px; line-height: 1.4; }
+
+  .cats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .cat { background: var(--blanc); border: 2px solid var(--beix-fosc); border-radius: 50px; padding: 7px 14px; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 13px; color: var(--text-suau); cursor: pointer; white-space: nowrap; }
+  .cat.active { background: var(--verd); border-color: var(--verd); color: var(--blanc); }
+
+  .targeta { background: var(--blanc); border-radius: var(--radius); box-shadow: 0 2px 8px var(--ombra); padding: 16px; }
+  .targeta-titol { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 15px; color: var(--verd); margin-bottom: 10px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat { background: var(--beix); border-radius: var(--radius-sm); padding: 10px 12px; }
+  .stat small { display: block; font-size: 11px; color: var(--text-suau); font-family: 'Nunito', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat b { font-family: 'Nunito', sans-serif; font-weight: 800; font-size: 20px; color: var(--text); }
+
+  .estat-gps { font-size: 13px; color: var(--text-suau); text-align: center; font-family: 'Nunito', sans-serif; font-weight: 700; }
+  .estat-gps.ok { color: var(--verd-clar); }
+  .estat-gps.dolent { color: #e67e22; }
+
+  .info-box { background: var(--blau-clar); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: var(--blau); line-height: 1.5; }
+  .info-box.groc { background: #fff8e1; color: #7d5a00; border: 1px solid var(--groc); }
+  .badge { display: inline-block; background: var(--beix-fosc); color: var(--verd); border-radius: 50px; padding: 4px 10px; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 12px; }
+
+  #perfil { width: 100%; height: 140px; display: block; }
+  .perfil-buit { font-size: 13px; color: var(--text-suau); text-align: center; padding: 20px 0; }
+
+  .fitxer { position: relative; overflow: hidden; }
+  .fitxer input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+
+  .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--blanc); padding: 12px 22px; border-radius: 50px; font-family: 'Nunito', sans-serif; font-weight: 700; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; max-width: 90vw; text-align: center; }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="pagina">
+
+  <div class="topbar">
+    <a href="/" class="topbar-btn" title="Tornar a Hi ha de tot">←</a>
+    <div class="topbar-logo"><span>🥾 Rutes</span><span class="beta">BETA</span></div>
+    <div style="width:40px;"></div>
+  </div>
+
+  <div id="mapa"></div>
+
+  <div class="content">
+
+    <!-- OBRIR GPX -->
+    <div id="panel-obrir" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="targeta">
+        <div class="targeta-titol">Obrir un fitxer GPX</div>
+        <p style="font-size:14px;color:var(--text-suau);line-height:1.5;margin-bottom:14px;">Tria un GPX del mòbil o de l'ordinador (de Wikiloc, Strava, Garmin, OsmAnd...). Només es mostra aquí: no es puja enlloc.</p>
+        <div class="btn-primary fitxer">📂 Tria un fitxer GPX
+          <input type="file" id="input-gpx" onchange="obrirFitxerGPX(this)">
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTAT -->
+    <div id="panel-resultat" style="display:none;flex-direction:column;gap:14px;">
+
+      <!-- SEGUIMENT -->
+      <div class="targeta" style="display:flex;flex-direction:column;gap:12px;">
+        <div class="targeta-titol" style="margin-bottom:0;">📍 Seguir la ruta</div>
+        <div class="stats" id="seg-stats" style="display:none;">
+          <div class="stat"><small>Fet</small><b id="seg-fet">–</b></div>
+          <div class="stat"><small>Falta</small><b id="seg-falta">–</b></div>
+        </div>
+        <div class="estat-gps" id="estat-gps">Prem el botó per veure on ets sobre la ruta.</div>
+        <div class="botons" id="botons-seguir"></div>
+      </div>
+
+      <div class="targeta">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+          <span class="badge" id="r-tipus"></span>
+        </div>
+        <div class="stats">
+          <div class="stat"><small>Distància</small><b id="r-dist">–</b></div>
+          <div class="stat"><small>Durada</small><b id="r-temps">–</b></div>
+          <div class="stat"><small>Desnivell +</small><b id="r-pujada">–</b></div>
+          <div class="stat"><small>Desnivell −</small><b id="r-baixada">–</b></div>
+          <div class="stat"><small>Alt. màxima</small><b id="r-max">–</b></div>
+          <div class="stat"><small>Alt. mínima</small><b id="r-min">–</b></div>
+        </div>
+      </div>
+
+      <div class="targeta">
+        <div class="targeta-titol">⛰️ Perfil d'elevació</div>
+        <canvas id="perfil"></canvas>
+        <div class="perfil-buit" id="perfil-buit" style="display:none;">Aquesta ruta no té dades d'altitud.</div>
+      </div>
+
+      <div class="targeta" style="display:flex;flex-direction:column;gap:14px;">
+        <div class="field">
+          <label>Nom de la ruta</label>
+          <input type="text" id="r-nom" maxlength="80">
+        </div>
+        <div class="field">
+          <label>Activitat</label>
+          <div class="cats" id="r-activitat">
+            <div class="cat active" data-act="peu" onclick="triarActivitat(this)">🥾 A peu</div>
+            <div class="cat" data-act="corrent" onclick="triarActivitat(this)">🏃 Córrer</div>
+            <div class="cat" data-act="bici" onclick="triarActivitat(this)">🚴 Bici</div>
+          </div>
+        </div>
+        <div class="field">
+          <label>Retall de privacitat</label>
+          <select id="r-retall" onchange="actualitzarResultat()">
+            <option value="0">Sense retall (només per proves)</option>
+            <option value="100">100 m a l'inici i al final</option>
+            <option value="200" selected>200 m a l'inici i al final</option>
+            <option value="300">300 m a l'inici i al final</option>
+          </select>
+          <p class="field-note">El tros retallat surt en gris al mapa i no s'inclou al GPX descarregat. Serveix per no mostrar on viu qui puja la ruta.</p>
+        </div>
+        <div class="info-box groc" id="r-avis-retall" style="display:none;"></div>
+        <div style="font-size:12px;color:var(--text-suau);" id="r-punts"></div>
+      </div>
+
+      <button class="btn-primary" onclick="descarregarGPX()">⬇️ Descarregar GPX</button>
+      <button class="btn-secondary" onclick="novaRuta()">📂 Obrir una altra ruta</button>
+      <div class="info-box">🧪 Pàgina de proves: la ruta no es desa enlloc. Quan es connecti a l'app, aquí hi haurà el botó per publicar-la.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// CONFIGURACIÓ
+// ═══════════════════════════════════════
+const LLINDAR_DESNIVELL = 3;      // metres: filtre de soroll per al desnivell
+const TOLERANCIA_SIMPLIFICAR = 5; // metres
+const DIST_FORA_RUTA = 50;        // metres: a partir d'aquí avisa que ets fora de la ruta
+
+let mapa, marcadorPos, cerclePrecisio;
+let capaResultat = null;
+let resultat = null;   // { punts }
+let activitat = 'peu';
+let watchId = null;
+let seguint = false, centratSeguiment = false;
+
+// ═══════════════════════════════════════
+// MAPA
+// ═══════════════════════════════════════
+function iniciarMapa() {
+  mapa = L.map('mapa').setView([42.06, 2.68], 11);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(mapa);
+  capaResultat = L.layerGroup().addTo(mapa);
+}
+
+function mostrarPosicio(c) {
+  const ll = [c.latitude, c.longitude];
+  if (!marcadorPos) {
+    cerclePrecisio = L.circle(ll, { radius: c.accuracy, color: '#2471a3', weight: 1, fillOpacity: 0.12 }).addTo(mapa);
+    marcadorPos = L.circleMarker(ll, { radius: 8, color: '#ffffff', weight: 3, fillColor: '#2471a3', fillOpacity: 1 }).addTo(mapa);
+  } else {
+    marcadorPos.setLatLng(ll);
+    cerclePrecisio.setLatLng(ll).setRadius(c.accuracy);
+  }
+  marcadorPos.bringToFront();
+}
+
+function treurePosicio() {
+  if (marcadorPos) { mapa.removeLayer(marcadorPos); marcadorPos = null; }
+  if (cerclePrecisio) { mapa.removeLayer(cerclePrecisio); cerclePrecisio = null; }
+}
+
+// ═══════════════════════════════════════
+// CÀLCULS
+// ═══════════════════════════════════════
+function dist(a, b) {
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
+  const x = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(x));
+}
+
+function acumulades(pts) {
+  const c = [0];
+  for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + dist(pts[i - 1], pts[i]));
+  return c;
+}
+
+function teEle(p) { return p.ele !== null && p.ele !== undefined && !isNaN(p.ele); }
+
+function desnivell(pts) {
+  let pujada = 0, baixada = 0, ref = null, max = -Infinity, min = Infinity, n = 0;
+  for (const p of pts) {
+    if (!teEle(p)) continue;
+    n++;
+    if (p.ele > max) max = p.ele;
+    if (p.ele < min) min = p.ele;
+    if (ref === null) { ref = p.ele; continue; }
+    const d = p.ele - ref;
+    if (d >= LLINDAR_DESNIVELL) { pujada += d; ref = p.ele; }
+    else if (d <= -LLINDAR_DESNIVELL) { baixada -= d; ref = p.ele; }
+  }
+  return n ? { pujada, baixada, max, min } : null;
+}
+
+function distSeg(p, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const l2 = dx * dx + dy * dy;
+  let t = l2 ? ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2 : 0;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
+}
+
+// Douglas-Peucker: redueix punts mantenint la forma (per desar-ho lleuger en el futur)
+function simplificar(pts, tol) {
+  if (pts.length < 3) return pts.slice();
+  const lat0 = pts[0].lat * Math.PI / 180;
+  const xy = pts.map(p => [p.lon * 111320 * Math.cos(lat0), p.lat * 110540]);
+  const guardar = new Uint8Array(pts.length);
+  guardar[0] = 1; guardar[pts.length - 1] = 1;
+  const pila = [[0, pts.length - 1]];
+  while (pila.length) {
+    const [a, b] = pila.pop();
+    let maxD = 0, idx = -1;
+    for (let i = a + 1; i < b; i++) {
+      const d = distSeg(xy[i], xy[a], xy[b]);
+      if (d > maxD) { maxD = d; idx = i; }
+    }
+    if (idx > 0 && maxD > tol) { guardar[idx] = 1; pila.push([a, idx], [idx, b]); }
+  }
+  return pts.filter((_, i) => guardar[i]);
+}
+
+function retallar(pts, metres) {
+  if (!metres) return { ok: true, inici: 0, final: pts.length - 1 };
+  const c = acumulades(pts), total = c[c.length - 1];
+  let i = 0;
+  while (i < pts.length && c[i] < metres) i++;
+  let f = pts.length - 1;
+  while (f >= 0 && total - c[f] < metres) f--;
+  if (f - i < 1) return { ok: false, inici: 0, final: pts.length - 1 };
+  return { ok: true, inici: i, final: f };
+}
+
+function fmtDist(m) {
+  if (m < 1000) return Math.round(m) + ' m';
+  return (m / 1000).toFixed(2).replace('.', ',') + ' km';
+}
+
+function fmtTemps(ms) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+  return h + ':' + String(m).padStart(2, '0') + ':' + String(ss).padStart(2, '0');
+}
+
+// ═══════════════════════════════════════
+// SEGUIMENT (posició en directe sobre la ruta)
+// ═══════════════════════════════════════
+function posarEstatGps(text, classe) {
+  const el = document.getElementById('estat-gps');
+  el.textContent = text;
+  el.className = 'estat-gps' + (classe ? ' ' + classe : '');
+}
+
+function pintarBotonsSeguir() {
+  const cont = document.getElementById('botons-seguir');
+  if (!seguint) {
+    cont.innerHTML = `<button class="btn-primary btn-blau" onclick="iniciarSeguiment()">📍 Mostrar on soc</button>`;
+  } else {
+    cont.innerHTML = `<button class="btn-secondary" onclick="centrarEnMi()">🎯 Centrar</button>
+      <button class="btn-primary btn-vermell" onclick="aturarSeguiment()">⏹ Aturar</button>`;
+  }
+}
+
+function iniciarSeguiment() {
+  if (!navigator.geolocation) { showToast("Aquest navegador no té GPS disponible."); return; }
+  seguint = true;
+  centratSeguiment = false;
+  posarEstatGps('Buscant la teva posició...', 'dolent');
+  watchId = navigator.geolocation.watchPosition(onPosicio, onErrorGPS, {
+    enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
+  });
+  pintarBotonsSeguir();
+}
+
+function aturarSeguiment() {
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  watchId = null;
+  seguint = false;
+  treurePosicio();
+  document.getElementById('seg-stats').style.display = 'none';
+  posarEstatGps('Prem el botó per veure on ets sobre la ruta.', '');
+  pintarBotonsSeguir();
+}
+
+function centrarEnMi() {
+  if (marcadorPos) mapa.setView(marcadorPos.getLatLng(), Math.max(mapa.getZoom(), 16));
+}
+
+// Punt de la ruta més proper a la posició actual
+function puntMesProper(pts, pos) {
+  let millor = 0, dMin = Infinity;
+  for (let i = 0; i < pts.length; i++) {
+    const d = dist(pts[i], pos);
+    if (d < dMin) { dMin = d; millor = i; }
+  }
+  return { idx: millor, dist: dMin };
+}
+
+function onPosicio(pos) {
+  if (!seguint || !resultat) return;
+  const c = pos.coords;
+  mostrarPosicio(c);
+  if (!centratSeguiment) { centrarEnMi(); centratSeguiment = true; }
+
+  const { pts } = puntsRetallats();
+  const aqui = { lat: c.latitude, lon: c.longitude };
+  const prop = puntMesProper(pts, aqui);
+  const cum = acumulades(pts);
+  const total = cum[cum.length - 1];
+  const precisio = ' · precisió ' + Math.round(c.accuracy) + ' m';
+
+  if (prop.dist > DIST_FORA_RUTA) {
+    document.getElementById('seg-stats').style.display = 'none';
+    posarEstatGps('Ets a ' + fmtDist(prop.dist) + ' de la ruta' + precisio, 'dolent');
+  } else {
+    document.getElementById('seg-stats').style.display = 'grid';
+    document.getElementById('seg-fet').textContent = fmtDist(cum[prop.idx]);
+    document.getElementById('seg-falta').textContent = fmtDist(total - cum[prop.idx]);
+    posarEstatGps('Ets sobre la ruta' + precisio, 'ok');
+  }
+}
+
+function onErrorGPS(err) {
+  if (err.code === 1) {
+    showToast("Has de permetre l'ubicació al navegador per veure on ets.");
+    aturarSeguiment();
+    posarEstatGps("Permís d'ubicació denegat", 'dolent');
+  } else {
+    posarEstatGps('Sense senyal GPS. Continua intentant-ho...', 'dolent');
+  }
+}
+
+// ═══════════════════════════════════════
+// OBRIR GPX
+// ═══════════════════════════════════════
+function parsejarGPX(text) {
+  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) return null;
+  let nodes = doc.getElementsByTagName('trkpt');
+  if (!nodes.length) nodes = doc.getElementsByTagName('rtept');
+  const pts = [];
+  for (const n of nodes) {
+    const lat = parseFloat(n.getAttribute('lat'));
+    const lon = parseFloat(n.getAttribute('lon'));
+    if (isNaN(lat) || isNaN(lon)) continue;
+    const eleN = n.getElementsByTagName('ele')[0];
+    const timeN = n.getElementsByTagName('time')[0];
+    const ele = eleN ? parseFloat(eleN.textContent) : null;
+    const t = timeN ? Date.parse(timeN.textContent) : null;
+    pts.push({ lat, lon, ele: isNaN(ele) ? null : ele, t: isNaN(t) ? null : t });
+  }
+  const nomN = doc.querySelector('trk > name') || doc.querySelector('metadata > name') || doc.querySelector('rte > name');
+  return { punts: pts, nom: nomN ? nomN.textContent.trim() : '' };
+}
+
+function obrirFitxerGPX(input) {
+  const fitxer = input.files[0];
+  input.value = '';
+  if (!fitxer) return;
+  const lector = new FileReader();
+  lector.onload = e => {
+    const r = parsejarGPX(e.target.result);
+    if (!r || r.punts.length < 2) {
+      showToast("No s'ha pogut llegir el fitxer. Comprova que sigui un GPX amb un traç.");
+      return;
+    }
+    mostrarResultat(r.punts, r.nom || fitxer.name.replace(/\.gpx$/i, ''));
+  };
+  lector.readAsText(fitxer);
+}
+
+// ═══════════════════════════════════════
+// RESULTAT
+// ═══════════════════════════════════════
+function mostrarResultat(pts, nom) {
+  resultat = { punts: pts };
+  const avui = new Date().toLocaleDateString('ca-ES', { day: 'numeric', month: 'long' });
+  document.getElementById('r-nom').value = nom || ('Ruta del ' + avui);
+  const circular = dist(pts[0], pts[pts.length - 1]) < 150;
+  document.getElementById('r-tipus').textContent = circular ? '🔄 Circular' : '➡️ Lineal';
+  document.getElementById('panel-obrir').style.display = 'none';
+  document.getElementById('panel-resultat').style.display = 'flex';
+  pintarBotonsSeguir();
+  actualitzarResultat();
+}
+
+function puntsRetallats() {
+  if (!resultat) return { pts: [], r: null };
+  const metres = parseInt(document.getElementById('r-retall').value, 10) || 0;
+  const r = retallar(resultat.punts, metres);
+  return { pts: resultat.punts.slice(r.inici, r.final + 1), r, metres };
+}
+
+function actualitzarResultat() {
+  if (!resultat) return;
+  const { pts, r, metres } = puntsRetallats();
+  const tots = resultat.punts;
+
+  const avis = document.getElementById('r-avis-retall');
+  if (!r.ok) {
+    avis.style.display = 'block';
+    avis.textContent = '⚠️ La ruta és massa curta per retallar ' + metres + ' m per cada extrem. Es mostra sense retallar.';
+  } else {
+    avis.style.display = 'none';
+  }
+
+  // Mapa
+  capaResultat.clearLayers();
+  if (r.inici > 0) {
+    L.polyline(tots.slice(0, r.inici + 1).map(p => [p.lat, p.lon]), { color: '#888888', weight: 4, dashArray: '6 8' }).addTo(capaResultat);
+  }
+  if (r.final < tots.length - 1) {
+    L.polyline(tots.slice(r.final).map(p => [p.lat, p.lon]), { color: '#888888', weight: 4, dashArray: '6 8' }).addTo(capaResultat);
+  }
+  const linia = L.polyline(pts.map(p => [p.lat, p.lon]), { color: '#2d6b45', weight: 5 }).addTo(capaResultat);
+  L.circleMarker([pts[0].lat, pts[0].lon], { radius: 8, color: '#ffffff', weight: 2, fillColor: '#4a8c5c', fillOpacity: 1 }).bindTooltip('Inici').addTo(capaResultat);
+  L.circleMarker([pts[pts.length - 1].lat, pts[pts.length - 1].lon], { radius: 8, color: '#ffffff', weight: 2, fillColor: '#c0392b', fillOpacity: 1 }).bindTooltip('Final').addTo(capaResultat);
+  if (!seguint) mapa.fitBounds(L.polyline(tots.map(p => [p.lat, p.lon])).getBounds(), { padding: [30, 30] });
+  linia.bringToFront();
+  if (marcadorPos) marcadorPos.bringToFront();
+
+  // Estadístiques (sobre el tros retallat)
+  const c = acumulades(pts);
+  document.getElementById('r-dist').textContent = fmtDist(c[c.length - 1]);
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t;
+  document.getElementById('r-temps').textContent = (t0 && t1 && t1 > t0) ? fmtTemps(t1 - t0) : '–';
+  const d = desnivell(pts);
+  document.getElementById('r-pujada').textContent = d ? Math.round(d.pujada) + ' m' : '–';
+  document.getElementById('r-baixada').textContent = d ? Math.round(d.baixada) + ' m' : '–';
+  document.getElementById('r-max').textContent = d ? Math.round(d.max) + ' m' : '–';
+  document.getElementById('r-min').textContent = d ? Math.round(d.min) + ' m' : '–';
+
+  const simpl = simplificar(pts, TOLERANCIA_SIMPLIFICAR);
+  document.getElementById('r-punts').textContent = 'Punts: ' + tots.length + ' originals · ' + pts.length + ' després del retall · ' + simpl.length + ' simplificats (el que es desaria)';
+
+  dibuixarPerfil(pts);
+}
+
+function dibuixarPerfil(pts) {
+  const cv = document.getElementById('perfil');
+  const buit = document.getElementById('perfil-buit');
+  const c = acumulades(pts);
+  const dades = [];
+  pts.forEach((p, i) => { if (teEle(p)) dades.push([c[i], p.ele]); });
+  if (dades.length < 2) { cv.style.display = 'none'; buit.style.display = 'block'; return; }
+  cv.style.display = 'block'; buit.style.display = 'none';
+
+  const dpr = window.devicePixelRatio || 1;
+  const w = cv.clientWidth, h = 140;
+  cv.width = w * dpr; cv.height = h * dpr;
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+
+  const pe = 40, pd = 8, ps = 10, pi = 22;
+  const total = dades[dades.length - 1][0] || 1;
+  let minE = Math.min(...dades.map(x => x[1])), maxE = Math.max(...dades.map(x => x[1]));
+  if (maxE - minE < 10) { const mig = (maxE + minE) / 2; minE = mig - 5; maxE = mig + 5; }
+  const X = d => pe + (d / total) * (w - pe - pd);
+  const Y = e => ps + (1 - (e - minE) / (maxE - minE)) * (h - ps - pi);
+
+  ctx.strokeStyle = '#e8e0d0'; ctx.lineWidth = 1;
+  [minE, (minE + maxE) / 2, maxE].forEach(e => { ctx.beginPath(); ctx.moveTo(pe, Y(e)); ctx.lineTo(w - pd, Y(e)); ctx.stroke(); });
+
+  ctx.beginPath();
+  ctx.moveTo(X(dades[0][0]), h - pi);
+  dades.forEach(([d, e]) => ctx.lineTo(X(d), Y(e)));
+  ctx.lineTo(X(dades[dades.length - 1][0]), h - pi);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(74,140,92,0.25)';
+  ctx.fill();
+
+  ctx.beginPath();
+  dades.forEach(([d, e], i) => i ? ctx.lineTo(X(d), Y(e)) : ctx.moveTo(X(d), Y(e)));
+  ctx.strokeStyle = '#2d6b45'; ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.fillStyle = '#5a7a5a';
+  ctx.font = '11px Nunito, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(Math.round(maxE) + ' m', pe - 4, Y(maxE) + 4);
+  ctx.fillText(Math.round(minE) + ' m', pe - 4, Y(minE) + 4);
+  ctx.textAlign = 'left';
+  ctx.fillText('0', pe, h - 6);
+  ctx.textAlign = 'right';
+  ctx.fillText(fmtDist(total), w - pd, h - 6);
+}
+
+window.addEventListener('resize', () => { if (resultat) dibuixarPerfil(puntsRetallats().pts); });
+
+function triarActivitat(el) {
+  document.querySelectorAll('#r-activitat .cat').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  activitat = el.dataset.act;
+}
+
+function escXML(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function generarGPX(pts, nom, tipus) {
+  let x = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  x += '<gpx version="1.1" creator="Hi ha de tot - Rutes beta" xmlns="http://www.topografix.com/GPX/1/1">\n';
+  x += '  <trk>\n    <name>' + escXML(nom) + '</name>\n    <type>' + escXML(tipus) + '</type>\n    <trkseg>\n';
+  for (const p of pts) {
+    x += '      <trkpt lat="' + p.lat.toFixed(6) + '" lon="' + p.lon.toFixed(6) + '">';
+    if (teEle(p)) x += '<ele>' + p.ele.toFixed(1) + '</ele>';
+    if (p.t) x += '<time>' + new Date(p.t).toISOString() + '</time>';
+    x += '</trkpt>\n';
+  }
+  x += '    </trkseg>\n  </trk>\n</gpx>\n';
+  return x;
+}
+
+function descarregarGPX() {
+  if (!resultat) return;
+  const { pts } = puntsRetallats();
+  const nom = document.getElementById('r-nom').value.trim() || 'Ruta';
+  const tipus = { peu: 'A peu', corrent: 'Córrer', bici: 'Bici' }[activitat] || '';
+  const blob = new Blob([generarGPX(pts, nom, tipus)], { type: 'application/gpx+xml' });
+  const nomFitxer = nom.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '') || 'ruta';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nomFitxer + '.gpx';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  showToast('⬇️ GPX descarregat');
+}
+
+function novaRuta() {
+  if (seguint) aturarSeguiment();
+  resultat = null;
+  capaResultat.clearLayers();
+  document.getElementById('r-retall').value = '200';
+  document.getElementById('panel-resultat').style.display = 'none';
+  document.getElementById('panel-obrir').style.display = 'flex';
+}
+
+// ═══════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  iniciarMapa();
+  pintarBotonsSeguir();
+});
+</script>
+</body>
+</html>
